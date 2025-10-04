@@ -5,10 +5,10 @@
   "description": "Upload CCTV footage and enhance it locally using a lightweight enhancement pipeline.",
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icon.png"
+    "default_icon": "icon.jpg"
   },
   "permissions": ["storage", "activeTab", "downloads"],
   "icons": {
-    "128": "icon.png"
+    "128": "icon.jpg"
   }
 }
