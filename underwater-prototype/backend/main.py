@@ -36,7 +36,6 @@ app.add_middleware(
 # Placeholder enhancement
 # -----------------------------
 def enhance_frame_cv2(img):
-    def enhance_frame_cv2(img):
     """
     Simple visual enhancement placeholder:
     - Increase brightness
