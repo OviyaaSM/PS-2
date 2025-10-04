@@ -221,3 +221,22 @@ async def dashboard_page():
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+from flask import Flask, request, jsonify, send_file
+from unet_model import load_trained_model, enhance_image
+
+app = Flask(__name__)
+model = load_trained_model("unet_weights.h5")   # load trained model at startup
+
+@app.route("/enhance", methods=["POST"])
+def enhance():
+    file = request.files['file']
+    input_path = "temp_input.jpg"
+    output_path = "temp_output.jpg"
+    file.save(input_path)
+
+    enhanced_path = enhance_image(model, input_path, output_path)
+    return send_file(enhanced_path, mimetype='image/jpeg')
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
