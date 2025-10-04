@@ -1,0 +1,56 @@
+<!-- extension/popup.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Underwater Enhancer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <img src="icon.png" class="logo" alt="logo"/>
+      <div>
+        <h1>Underwater Enhancer</h1>
+        <p class="sub">Enhance CCTV footage (local server required)</p>
+      </div>
+    </header>
+
+    <main>
+      <label class="file-drop">
+        <input id="fileInput" type="file" accept="image/*,video/*" />
+        <div class="drop-inner">
+          <p id="dropText">Click or drop a recorded CCTV image/video here</p>
+          <small>Supports .mp4, .mov, .jpg, .png</small>
+        </div>
+      </label>
+
+      <div class="controls">
+        <button id="enhanceBtn" class="primary">Enhance</button>
+        <button id="viewDashboard" class="ghost">Open Dashboard</button>
+      </div>
+
+      <div id="previewArea" class="preview">
+        <div id="previewInner">No file selected</div>
+      </div>
+
+      <div id="progressArea" class="progress hidden">
+        <div class="progress-bar"><div id="progFill"></div></div>
+        <div id="progText">Uploading…</div>
+      </div>
+
+      <div id="resultCard" class="result hidden">
+        <h3>Result</h3>
+        <div id="metrics"></div>
+        <a id="downloadLink" class="downloadBtn" target="_blank">Download Enhanced</a>
+      </div>
+    </main>
+
+    <footer>
+      <small>Local prototype • ensure server is running at <code>http://127.0.0.1:8000</code></small>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
