@@ -36,11 +36,21 @@ app.add_middleware(
 # Placeholder enhancement
 # -----------------------------
 def enhance_frame_cv2(img):
+    def enhance_frame_cv2(img):
     """
-    Dummy enhancement: returns original image.
-    Replace with actual AI/GAN enhancement later.
+    Simple visual enhancement placeholder:
+    - Increase brightness
+    - Increase contrast
     """
-    return img
+    if img is None:
+        return img
+    # Convert to float32 for processing
+    img_float = img.astype(np.float32)
+    alpha = 1.2  # contrast factor (1.0 = original)
+    beta = 20    # brightness factor (0 = original)
+    enhanced = cv2.convertScaleAbs(img_float * alpha + beta)
+    return enhanced
+
 
 def is_image_file(filename):
     return any(filename.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png"])
