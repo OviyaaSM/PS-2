@@ -1,103 +1,80 @@
 // extension/popup.js
 const fileInput = document.getElementById('fileInput');
-const enhanceBtn = document.getElementById('enhanceBtn');
-const previewInner = document.getElementById('previewInner');
-const progressArea = document.getElementById('progressArea');
-const progFill = document.getElementById('progFill');
-const progText = document.getElementById('progText');
-const resultCard = document.getElementById('resultCard');
-const metricsDiv = document.getElementById('metrics');
-const downloadLink = document.getElementById('downloadLink');
-const viewDash = document.getElementById('viewDashboard');
+const processBtn = document.getElementById('processBtn');
+const openDashboard = document.getElementById('openDashboard');
+const status = document.getElementById('status');
+const orig = document.getElementById('orig');
+const annot = document.getElementById('annot');
+const tableWrap = document.getElementById('tableWrap');
+const detTableBody = document.querySelector('#detTable tbody');
+const alertBox = document.getElementById('alertBox');
+const downloadEnhanced = document.getElementById('downloadEnhanced');
+const downloadAnnotated = document.getElementById('downloadAnnotated');
 
 let selectedFile = null;
 
-fileInput.addEventListener('change', (e) => {
+fileInput.addEventListener('change', e => {
   selectedFile = e.target.files[0];
-  showPreview(selectedFile);
-  resultCard.classList.add('hidden');
-});
-
-function showPreview(file) {
-  previewInner.innerHTML = '';
-  if(!file) { previewInner.textContent = 'No file selected'; return; }
-  const url = URL.createObjectURL(file);
-  if(file.type.startsWith('image/')) {
-    const img = document.createElement('img'); img.src = url; previewInner.appendChild(img);
-  } else if(file.type.startsWith('video/')) {
-    const vid = document.createElement('video'); vid.controls = true; vid.src = url; previewInner.appendChild(vid);
+  status.textContent = selectedFile ? `Selected: ${selectedFile.name}` : 'No file selected';
+  tableWrap.classList.add('hidden');
+  // preview original
+  orig.innerHTML = '';
+  const url = URL.createObjectURL(selectedFile);
+  if (selectedFile && selectedFile.type.startsWith('image/')) {
+    const img = document.createElement('img'); img.src = url; img.style.maxWidth='100%'; orig.appendChild(img);
   } else {
-    previewInner.textContent = 'Unsupported file type';
+    orig.innerHTML = '<div style="color:#98a8bf">Video selected (preview not available)</div>';
   }
-}
-
-enhanceBtn.addEventListener('click', () => {
-  if(!selectedFile) return alert('Please select a file to enhance.');
-  uploadAndEnhance(selectedFile);
 });
 
-viewDash.addEventListener('click', () => {
-  // open the local dashboard in a new tab
+openDashboard.addEventListener('click', () => {
+  // open dashboard page (same backend)
   chrome.tabs.create({ url: 'http://127.0.0.1:8000/dashboard' });
 });
 
-function uploadAndEnhance(file) {
-  progressArea.classList.remove('hidden');
-  progFill.style.width = '0%';
-  progText.textContent = 'Uploading file…';
-
-  const url = 'http://127.0.0.1:8000/process';
-
-  const xhr = new XMLHttpRequest();
-  xhr.open('POST', url, true);
-
-  xhr.upload.onprogress = function(e) {
-    if (e.lengthComputable) {
-      const percent = Math.round((e.loaded / e.total) * 100);
-      progFill.style.width = percent + '%';
-      progText.textContent = `Uploading... ${percent}%`;
+processBtn.addEventListener('click', async () => {
+  if (!selectedFile) return alert('Please select an image or video file.');
+  status.textContent = 'Uploading & processing...';
+  const form = new FormData();
+  form.append('file', selectedFile, selectedFile.name);
+  form.append('conf_threshold', 0.25);
+  try {
+    const res = await fetch('http://127.0.0.1:8000/process', { method: 'POST', body: form });
+    const j = await res.json();
+    if (j.status !== 'ok') {
+      status.textContent = 'Error: ' + (j.message || 'Processing failed');
+      return;
     }
-  };
-
-  xhr.onload = function() {
-    progressArea.classList.add('hidden');
-    if (xhr.status === 200) {
-      try {
-        const res = JSON.parse(xhr.responseText);
-        if (res.status === 'ok') {
-          showResult(res);
-        } else {
-          alert('Error: ' + (res.message || 'unknown'));
-        }
-      } catch (err) {
-        alert('Server response parse error: ' + err);
+    status.textContent = `Done: ${j.filename || j.filename}`;
+    // show annotated preview (if image)
+    tableWrap.classList.remove('hidden');
+    alertBox.textContent = j.alert || '';
+    detTableBody.innerHTML = '';
+    (j.detections || []).forEach((d, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${idx+1}</td><td>${d.label || d.raw_label || d.class}</td><td>${(d.conf||d.confidence||0).toFixed(2)}</td><td>${d.bbox? d.bbox.join(', '): ''}</td>`;
+      detTableBody.appendChild(tr);
+    });
+    // set download links
+    downloadEnhanced.href = j.enhanced ? `http://127.0.0.1:8000/download/${j.enhanced}` : '#';
+    downloadAnnotated.href = j.detected ? `http://127.0.0.1:8000/download/${j.detected}` : (j.annotated_path? j.annotated_path : '#');
+    // display annotated image if available and file is image
+    if (selectedFile.type.startsWith('image/')) {
+      annot.innerHTML = '';
+      const img = document.createElement('img');
+      // annotated path: j.detected
+      const annName = j.detected || j.annotated_path || '';
+      if (annName) {
+        img.src = `http://127.0.0.1:8000/download/${annName}`;
+        img.style.maxWidth='100%';
+        annot.appendChild(img);
+      } else {
+        annot.textContent = 'Annotated image not available';
       }
     } else {
-      alert('Upload failed: ' + xhr.statusText);
+      annot.innerHTML = '<div style="color:#98a8bf">Video processed — download annotated video below</div>';
     }
-  };
-
-  xhr.onerror = function() {
-    progressArea.classList.add('hidden');
-    alert('Network error while uploading. Is the backend running?');
-  };
-
-  const formData = new FormData();
-  formData.append('file', file, file.name);
-  xhr.send(formData);
-}
-
-function showResult(res) {
-  resultCard.classList.remove('hidden');
-  let html = '';
-  if(res.metrics) {
-    html += `<div><strong>PSNR:</strong> ${res.metrics.psnr ? res.metrics.psnr.toFixed(2) : 'N/A'}</div>`;
-    html += `<div><strong>SSIM:</strong> ${res.metrics.ssim ? res.metrics.ssim.toFixed(3) : 'N/A'}</div>`;
-    html += `<div><strong>UIQM (approx):</strong> ${res.metrics.uiqm_approx ? res.metrics.uiqm_approx.toFixed(2) : 'N/A'}</div>`;
+  } catch (err) {
+    status.textContent = 'Network or server error: ' + err;
   }
-  metricsDiv.innerHTML = html;
-  const fileURL = `http://127.0.0.1:8000${res.out_url}`;
-  downloadLink.href = fileURL;
-  downloadLink.textContent = 'Download Enhanced';
-  downloadLink.target = '_blank';
-}
+});
