@@ -2,13 +2,11 @@
   "manifest_version": 3,
   "name": "Underwater CCTV Enhancer",
   "version": "1.0",
-  "description": "Upload CCTV footage and enhance it locally using a lightweight enhancement pipeline.",
+  "description": "Upload CCTV footage and enhance + detect divers/submarines (local backend required).",
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icon.jpg"
   },
   "permissions": ["storage", "activeTab", "downloads"],
-  "icons": {
-    "128": "icon.jpg"
-  }
+  "icons": { "128": "icon.jpg" }
 }
