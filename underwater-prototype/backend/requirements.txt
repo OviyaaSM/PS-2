@@ -1,11 +1,12 @@
 fastapi
 uvicorn[standard]
 python-multipart
-opencv-python
-numpy
-scikit-image
-pillow
 aiofiles
-jinja2
+opencv-python-headless
+numpy
+Pillow
+ultralytics
+scikit-image
 sqlalchemy
 python-dotenv
+
