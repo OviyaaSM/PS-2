@@ -1,6 +1,6 @@
 # backend/data.yaml
-train: ../underwater_dataset/yolo/images/train
-val: ../underwater_dataset/yolo/images/val
+train: C:\Users\ADMIN\OneDrive\Desktop\PS-2\underwater-prototype\underwater_dataset\images\all
+val: C:\Users\ADMIN\OneDrive\Desktop\PS-2\underwater-prototype\underwater_dataset\images\masks
 
 nc: 3
 names: ['diver', 'submarine', 'boat']
