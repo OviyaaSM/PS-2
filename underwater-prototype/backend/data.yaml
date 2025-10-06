@@ -1,0 +1,6 @@
+# backend/data.yaml
+train: ../underwater_dataset/yolo/images/train
+val: ../underwater_dataset/yolo/images/val
+
+nc: 3
+names: ['diver', 'submarine', 'boat']
