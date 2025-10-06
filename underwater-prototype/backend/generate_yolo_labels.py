@@ -33,7 +33,7 @@ def convert_shape_to_yolo(shape, image_width, image_height):
 # Example for JSON annotation format
 for json_file in glob(os.path.join(ANNOTATIONS_DIR, '*.json')):
     with open(json_file, 'r') as f:
-        data = json.load(f)
+        data = xml.load(f)
 
     image_name = os.path.splitext(os.path.basename(json_file))[0]
     image_file = os.path.join(IMAGES_DIR, image_name + '.jpg')  # adjust extension if needed
