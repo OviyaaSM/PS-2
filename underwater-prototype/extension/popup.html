@@ -10,7 +10,10 @@
   <div class="container">
     <header>
       <img src="icon.jpg" class="logo" alt="logo"/>
-      <div><h1>Underwater Enhancer</h1><p class="sub">Local server required — http://127.0.0.1:8000</p></div>
+      <div>
+        <h1>Underwater Enhancer</h1>
+        <p class="sub">Local server required — http://127.0.0.1:8000</p>
+      </div>
     </header>
 
     <main>
@@ -22,8 +25,10 @@
 
       <div id="status" class="status">No file selected</div>
 
+      <!-- Preview wrapper with Original / Enhanced / Annotated -->
       <div id="preview" class="preview">
         <div id="orig" class="box">Original</div>
+        <div id="enhanced" class="box">Enhanced</div>
         <div id="annot" class="box">Annotated</div>
       </div>
 
@@ -31,7 +36,9 @@
         <h3>Detections</h3>
         <div id="alertBox" class="alertBox"></div>
         <table id="detTable">
-          <thead><tr><th>#</th><th>Label</th><th>Conf</th><th>BBox</th></tr></thead>
+          <thead>
+            <tr><th>#</th><th>Label</th><th>Conf</th><th>BBox</th></tr>
+          </thead>
           <tbody></tbody>
         </table>
         <div style="margin-top:8px">
@@ -42,6 +49,7 @@
     </main>
     <footer>Prototype • Local</footer>
   </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
