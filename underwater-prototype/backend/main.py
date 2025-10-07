@@ -321,25 +321,74 @@ async def process_video_buffer(contents, filename, conf_th=0.25, frame_step=15):
 
 # API endpoints
 
+from datetime import datetime
+from fastapi.responses import JSONResponse
+import os
+
 @app.post("/process")
 async def process_endpoint(file: UploadFile = File(...), conf_threshold: float = Form(0.25)):
     """
     Accepts image or video. Returns a JSON record:
-    { status, id, filename, timestamp, alert, metrics, detections, orig_path, enhanced_path, annotated_path }
+    {
+      status, filename, timestamp, alert,
+      detections, enhanced_path, annotated_path
+    }
     """
     try:
         contents = await file.read()
         fname = file.filename
-        # simple type check by extension
+
+        # Ensure static directories exist
+        os.makedirs("static/enhanced", exist_ok=True)
+        os.makedirs("static/annotated", exist_ok=True)
+
+        # --- IMAGE CASE ---
         if is_image_file(fname):
             rec = await process_image_buffer(contents, fname, conf_th=conf_threshold)
-            return JSONResponse({"status":"ok", **rec})
         else:
-            # assume video
+            # --- VIDEO CASE ---
             rec = await process_video_buffer(contents, fname, conf_th=conf_threshold)
-            return JSONResponse({"status":"ok", **rec})
+
+        # Extract what your process_*_buffer functions return
+        enhanced_path = rec.get("enhanced_path")
+        annotated_path = rec.get("annotated_path")
+        detections = rec.get("detections", [])
+
+        # Create an alert based on detections
+        alert = None
+        labels = [d.get("label", "").lower() for d in detections]
+        if any("submarine" in l for l in labels):
+            alert = "🚨 Submarine detected!"
+        elif any("diver" in l for l in labels):
+            alert = "⚠️ Diver detected!"
+        else:
+            alert = "✅ No threat detected."
+
+        # Generate timestamp for dashboard/history
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Prepare relative paths for frontend access
+        if enhanced_path and not enhanced_path.startswith("/static/"):
+            enhanced_path = f"/static/enhanced/{os.path.basename(enhanced_path)}"
+        if annotated_path and not annotated_path.startswith("/static/"):
+            annotated_path = f"/static/annotated/{os.path.basename(annotated_path)}"
+
+        # ✅ Final JSON response for frontend
+        return JSONResponse({
+            "status": "ok",
+            "filename": fname,
+            "timestamp": timestamp,
+            "alert": alert,
+            "detections": detections,
+            "enhanced_path": enhanced_path,
+            "annotated_path": annotated_path
+        })
+
     except Exception as e:
-        return JSONResponse({"status":"error","message":str(e)}, status_code=500)
+        return JSONResponse({
+            "status": "error",
+            "message": str(e)
+        }, status_code=500)
 
 @app.get("/download/{fname}")
 async def download_file(fname: str):
