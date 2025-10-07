@@ -1,5 +1,5 @@
-train: C:\Users\ADMIN\OneDrive\Desktop\PS-2\underwater-prototype\underwater_dataset\images\all
-val: C:\Users\ADMIN\OneDrive\Desktop\PS-2\underwater-prototype\underwater_dataset\images\labels
+train: C:\Users\ADMIN\OneDrive\Desktop\PS-2\underwater-prototype\underwater_dataset\images\labels
+val: C:\Users\ADMIN\OneDrive\Desktop\PS-2\underwater-prototype\underwater_dataset\images\all
 
 nc: 3
 names: ['diver', 'submarine', 'boat']
