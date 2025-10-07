@@ -321,146 +321,74 @@ async def process_video_buffer(contents, filename, conf_th=0.25, frame_step=15):
 
 # API endpoints
 
-import cv2
-import numpy as np
-import torch
 from datetime import datetime
+from fastapi.responses import JSONResponse
 import os
-from ultralytics import YOLO
 
-# Load YOLO model (adjust path if needed)
-MODEL_PATH = r"C:\Users\ADMIN\OneDrive\Desktop\PS-2\underwater-prototype\runs\detect\train\weights\best.pt"
-model = YOLO(MODEL_PATH)
-
-# Utility to check file type
-def is_image_file(filename: str):
-    return filename.lower().endswith((".jpg", ".jpeg", ".png", ".bmp"))
-
-# Enhance underwater image (simple method)
-def enhance_underwater_image(img):
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
-    l = cv2.equalizeHist(l)
-    merged = cv2.merge((l, a, b))
-    enhanced = cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
-    return enhanced
-
-# Process a single image
-async def process_image_buffer(image_bytes, filename, conf_th=0.25):
-    np_img = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
-
-    # Step 1: Enhance
-    enhanced = enhance_underwater_image(img)
-
-    # Step 2: Run detection on enhanced image
-    results = model.predict(enhanced, conf=conf_th, verbose=False)
-
-    detections = []
-    annotated = enhanced.copy()
-    for r in results:
-        for box in r.boxes:
-            cls = int(box.cls)
-            conf = float(box.conf)
-            label = model.names[cls]
-            xyxy = box.xyxy[0].cpu().numpy().tolist()
-            detections.append({
-                "label": label,
-                "conf": conf,
-                "bbox": xyxy
-            })
-
-            # Draw bounding boxes
-            x1, y1, x2, y2 = map(int, xyxy)
-            color = (0, 255, 0) if "diver" in label.lower() else (0, 0, 255)
-            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(annotated, f"{label} {conf:.2f}", (x1, y1 - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-
-    # Step 3: Save outputs
-    base = os.path.splitext(os.path.basename(filename))[0]
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    enh_path = f"static/enhanced/{base}_{timestamp}.jpg"
-    ann_path = f"static/annotated/{base}_{timestamp}.jpg"
-
-    os.makedirs("static/enhanced", exist_ok=True)
-    os.makedirs("static/annotated", exist_ok=True)
-    cv2.imwrite(enh_path, enhanced)
-    cv2.imwrite(ann_path, annotated)
-
-    return {
-        "enhanced_path": enh_path,
-        "annotated_path": ann_path,
-        "detections": detections
+@app.post("/process")
+async def process_endpoint(file: UploadFile = File(...), conf_threshold: float = Form(0.25)):
+    """
+    Accepts image or video. Returns a JSON record:
+    {
+      status, filename, timestamp, alert,
+      detections, enhanced_path, annotated_path
     }
+    """
+    try:
+        contents = await file.read()
+        fname = file.filename
 
-# Process a video file
-async def process_video_buffer(video_bytes, filename, conf_th=0.25):
-    temp_video = f"temp_{filename}"
-    with open(temp_video, "wb") as f:
-        f.write(video_bytes)
+        # Ensure static directories exist
+        os.makedirs("static/enhanced", exist_ok=True)
+        os.makedirs("static/annotated", exist_ok=True)
 
-    cap = cv2.VideoCapture(temp_video)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        # --- IMAGE CASE ---
+        if is_image_file(fname):
+            rec = await process_image_buffer(contents, fname, conf_th=conf_threshold)
+        else:
+            # --- VIDEO CASE ---
+            rec = await process_video_buffer(contents, fname, conf_th=conf_threshold)
 
-    base = os.path.splitext(os.path.basename(filename))[0]
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    enh_path = f"static/enhanced/{base}_{timestamp}.mp4"
-    ann_path = f"static/annotated/{base}_{timestamp}.mp4"
+        # Extract what your process_*_buffer functions return
+        enhanced_path = rec.get("enhanced_path")
+        annotated_path = rec.get("annotated_path")
+        detections = rec.get("detections", [])
 
-    os.makedirs("static/enhanced", exist_ok=True)
-    os.makedirs("static/annotated", exist_ok=True)
+        # Create an alert based on detections
+        alert = None
+        labels = [d.get("label", "").lower() for d in detections]
+        if any("submarine" in l for l in labels):
+            alert = "🚨 Submarine detected!"
+        elif any("diver" in l for l in labels):
+            alert = "⚠️ Diver detected!"
+        else:
+            alert = "✅ No threat detected."
 
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out_enh = cv2.VideoWriter(enh_path, fourcc, fps, (width, height))
-    out_ann = cv2.VideoWriter(ann_path, fourcc, fps, (width, height))
+        # Generate timestamp for dashboard/history
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    detections = []
+        # Prepare relative paths for frontend access
+        if enhanced_path and not enhanced_path.startswith("/static/"):
+            enhanced_path = f"/static/enhanced/{os.path.basename(enhanced_path)}"
+        if annotated_path and not annotated_path.startswith("/static/"):
+            annotated_path = f"/static/annotated/{os.path.basename(annotated_path)}"
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+        # ✅ Final JSON response for frontend
+        return JSONResponse({
+            "status": "ok",
+            "filename": fname,
+            "timestamp": timestamp,
+            "alert": alert,
+            "detections": detections,
+            "enhanced_path": enhanced_path,
+            "annotated_path": annotated_path
+        })
 
-        # Enhance
-        enhanced = enhance_underwater_image(frame)
-        out_enh.write(enhanced)
-
-        # Detect
-        results = model.predict(enhanced, conf=conf_th, verbose=False)
-
-        annotated = enhanced.copy()
-        for r in results:
-            for box in r.boxes:
-                cls = int(box.cls)
-                conf = float(box.conf)
-                label = model.names[cls]
-                xyxy = box.xyxy[0].cpu().numpy().tolist()
-                detections.append({
-                    "label": label,
-                    "conf": conf,
-                    "bbox": xyxy
-                })
-
-                x1, y1, x2, y2 = map(int, xyxy)
-                color = (0, 255, 0) if "diver" in label.lower() else (0, 0, 255)
-                cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(annotated, f"{label} {conf:.2f}", (x1, y1 - 5),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-        out_ann.write(annotated)
-
-    cap.release()
-    out_enh.release()
-    out_ann.release()
-    os.remove(temp_video)
-
-    return {
-        "enhanced_path": enh_path,
-        "annotated_path": ann_path,
-        "detections": detections
-    }
+    except Exception as e:
+        return JSONResponse({
+            "status": "error",
+            "message": str(e)
+        }, status_code=500)
 
 @app.get("/download/{fname}")
 async def download_file(fname: str):
